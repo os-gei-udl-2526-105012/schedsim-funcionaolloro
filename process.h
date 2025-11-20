@@ -10,8 +10,6 @@
 // Finished: The process finishes its work.
 enum processStatus{Ready, Running, Bloqued, Finished};
 
-
-
 typedef struct _process
 {
     // Information required by the scheduler

@@ -87,6 +87,24 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].completed = false;
     }
 
+    for(int t = 0; t < duration ; t++) 
+    {
+       for(int i = 0; i < nprocs; i++) 
+       {
+        Process * process = &procTable[i];
+        if(process->arrive_time == t)
+        {
+            enqueue(process);
+        }
+        if(process->burst == t)
+        {
+            process->completed = true;
+            Process* current = dequeue();
+        }
+        current.lifecycle[t] = // De qué?;
+       }   
+    }
+
     printSimulation(nprocs,procTable,duration);
 
     for (int p=0; p<nprocs; p++ ){

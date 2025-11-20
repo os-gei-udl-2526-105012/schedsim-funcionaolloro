@@ -8,8 +8,6 @@
 
 #define OPTSTR "a:f:m:q:vh"
 
-
-
 void clean(void);
 void usage(void);
 
@@ -35,7 +33,7 @@ int main(int argc, char *argv[]){
                 quantum = atoi(optarg);
                 break;
             case 'f': 
-                    filename = strdup(optarg); 
+                filename = strdup(optarg); 
                 break;
             case 'a':
                     for (int i = 0; i < num_algorithms(); i++) {

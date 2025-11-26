@@ -86,22 +86,22 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].response_time = 0;
         procTable[p].completed = false;
     }
-
-    for(int t = 0; t < duration ; t++) 
+    //Implementació nostra
+    for(size_t t = 0; t < duration ; t++) 
     {
-       for(int i = 0; i < nprocs; i++) 
+       for(size_t i = 0; i < nprocs; i++) 
        {
         Process * process = &procTable[i];
         if(process->arrive_time == t)
         {
             enqueue(process);
+            //printProcess(process[t]);
         }
-        if(process->burst == t)
+        if((process->burst - process->arrive_time) != 0)
         {
-            process->completed = true;
-            Process* current = dequeue();
+            process->lifecycle[t] = Running;
+            process->burst--;
         }
-        current.lifecycle[t] = // De qué?;
        }   
     }
 

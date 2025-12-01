@@ -121,13 +121,10 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
             //Si no hi ha més processos encuats paro el bucle
             //si n'hi ha els trec els posso com a ready
             //si no hi ha hi ha més procs, no faig res.
-           for(size_t i = 1; i < nprocs; i++)
-           {
-                if((procTable[i] = dequeue()) == NULL)
-                {
-                    break;
-                }
-           }
+            if((procTable = dequeue()) == NULL)
+            {
+                break;
+            }
         }
     }
     if (current != NULL)
@@ -142,8 +139,9 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
     }
     for(size_t i = 1; i < nprocs ; i++)
     {
-        if(procTable[i] != NULL)
-
+        if(procTable != NULL){
+            procTable[i].lifecycle[t] = Ready;
+        }
     }
 }
  

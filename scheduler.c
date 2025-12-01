@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 #include "process.h"
 #include "queue.h"
 #include "scheduler.h"
@@ -87,33 +88,66 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].completed = false;
     }
 
+
     //Implementació nostra
-    for(size_t t = 0; t < duration ; t++) 
+    Process * current = NULL;
+    
+    for (size_t t = 0; t < duration; t++)
     {
-       for(size_t i = 0; i < nprocs; i++) 
-       {
-        Process * process = &procTable[i];
-        Process * current = NULL;
-        if(process->arrive_time == t)
+        for (size_t i = 0; i < nprocs; i++)
         {
-            enqueue(process);
-        }
-        if(current == NULL)
+        printf("%ld,%ld \n",t,i);
+        Process *p = &procTable[i];
+        printProcess(*p);
+        if (p->arrive_time == t)
         {
-            current = dequeue();
+            if(enqueue(p) == EXIT_FAILURE)
+            {
+                perror("Error en encuar el procés");
+                return EXIT_FAILURE;
+            }
         }
-        if(current->burst == 0)
+    }
+    if (current == NULL && get_queue_size() > 0)
+    {
+        if((current = dequeue()) == NULL)
+        {
+            perror("No s'ha decuat cap procés");
+            return EXIT_FAILURE;
+        }
+        else //S'ha encuat un procés
+        {
+            //Mirar si hi ha més procesos encuats, 
+            //Si no hi ha més processos encuats paro el bucle
+            //si n'hi ha els trec els posso com a ready
+            //si no hi ha hi ha més procs, no faig res.
+           for(size_t i = 1; i < nprocs; i++)
+           {
+                if((procTable[i] = dequeue()) == NULL)
+                {
+                    break;
+                }
+           }
+        }
+    }
+    if (current != NULL)
+    {
+        current->lifecycle[t] = Running;
+        current->burst--;
+        if (current->burst == 0)
         {
             current->lifecycle[t] = Finished;
             current = NULL;
         }
-        if((current->burst - current->arrive_time) != 0)
-        {
-            current->lifecycle[t] = Running;
-            process->burst--;
-        }
-       }   
     }
+    for(size_t i = 1; i < nprocs ; i++)
+    {
+        if(procTable[i] != NULL)
+
+    }
+}
+ 
+    
 
     printSimulation(nprocs,procTable,duration);
 

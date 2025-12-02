@@ -68,6 +68,70 @@ int getCurrentBurst(Process* proc, int current_time){
     return burst;
 }
 
+void make_fifo(Process * procTable, size_t nprocs)
+{
+    qsort(procTable,nprocs,sizeof(Process),compareArrival);
+    init_queue();
+    size_t duration = getTotalCPU(procTable, nprocs) +1;
+
+    for (int p=0; p<nprocs; p++ ){
+        procTable[p].lifecycle = malloc( duration * sizeof(int));
+        for(int t=0; t<duration; t++){
+            procTable[p].lifecycle[t]=-1;
+        }
+        procTable[p].waiting_time = 0;
+        procTable[p].return_time = 0;
+        procTable[p].response_time = 0;
+        procTable[p].completed = false;
+    }
+
+    Process * current = NULL;
+    for (size_t t = 0; t < duration; t++){
+        for (size_t i = 0; i < nprocs; i++){
+            /*  - Per cada instant t mirem si hi ha algun procés que arribi.
+                - Si és així l'afegim a la cua
+            */   
+            Process *p = &procTable[i];
+            if (p->arrive_time == t){
+                int st = enqueue(p);
+                if (st == EXIT_FAILURE){
+                    fprintf(stderr, "Error enqueuing process %s at time %ld\n", p->name, t);
+                }
+            }
+        }
+
+        // - Si no hi ha cap procés en execució current==NULL, en traiem un de la cua si n'hi ha
+        
+        if (current == NULL && get_queue_size() > 0){
+                current = dequeue();
+        }
+
+        // - Si hi ha un procés en execució, l'executem un cicle més
+        if (current != NULL){
+            current->lifecycle[t] = Running;
+            current->burst--;
+        }
+
+        // - Actualitzem l'estat dels altres processos
+        for(size_t i = 0; i < nprocs ; i++){
+            Process *p = &procTable[i];
+            if(current!=NULL && current->id != p->id && p->completed == false && p->arrive_time <= t) {
+                p->lifecycle[t] = Ready;
+                p->waiting_time++;
+                p->response_time++;
+            }
+        }
+
+        // - Si el procés en execució ha acabat, l'acabem
+        if (current != NULL && current->burst == 0){
+            current->lifecycle[t] = Finished;
+            current->return_time = (int)t - current->arrive_time;
+            current->completed = true;
+            current = NULL;
+        }
+    }
+}
+
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
 
     Process * _proclist;
@@ -88,64 +152,9 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].completed = false;
     }
 
-
-    //Implementació nostra
-    Process * current = NULL;
-    
-    for (size_t t = 0; t < duration; t++)
-    {
-        for (size_t i = 0; i < nprocs; i++)
-        {
-        printf("%ld,%ld \n",t,i);
-        Process *p = &procTable[i];
-        printProcess(*p);
-        if (p->arrive_time == t)
-        {
-            if(enqueue(p) == EXIT_FAILURE)
-            {
-                perror("Error en encuar el procés");
-                return EXIT_FAILURE;
-            }
-        }
+    if (algorithm == FCFS){
+        make_fifo(procTable, nprocs);
     }
-    if (current == NULL && get_queue_size() > 0)
-    {
-        if((current = dequeue()) == NULL)
-        {
-            perror("No s'ha decuat cap procés");
-            return EXIT_FAILURE;
-        }
-        else //S'ha encuat un procés
-        {
-            //Mirar si hi ha més procesos encuats, 
-            //Si no hi ha més processos encuats paro el bucle
-            //si n'hi ha els trec els posso com a ready
-            //si no hi ha hi ha més procs, no faig res.
-            if((procTable = dequeue()) == NULL)
-            {
-                break;
-            }
-        }
-    }
-    if (current != NULL)
-    {
-        current->lifecycle[t] = Running;
-        current->burst--;
-        if (current->burst == 0)
-        {
-            current->lifecycle[t] = Finished;
-            current = NULL;
-        }
-    }
-    for(size_t i = 1; i < nprocs ; i++)
-    {
-        if(procTable != NULL){
-            procTable[i].lifecycle[t] = Ready;
-        }
-    }
-}
- 
-    
 
     printSimulation(nprocs,procTable,duration);
 

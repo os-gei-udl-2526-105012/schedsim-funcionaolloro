@@ -71,58 +71,65 @@ int getCurrentBurst(Process* proc, int current_time){
 void make_fifo(Process * procTable, size_t nprocs)
 {
     qsort(procTable,nprocs,sizeof(Process),compareArrival);
-
     init_queue();
-    size_t duration = getTotalCPU(procTable, nprocs) + 1;
+    size_t duration = getTotalCPU(procTable, nprocs) +1;
+
+    for (int p=0; p<nprocs; p++ ){
+        procTable[p].lifecycle = malloc( duration * sizeof(int));
+        for(int t=0; t<duration; t++){
+            procTable[p].lifecycle[t]=-1;
+        }
+        procTable[p].waiting_time = 0;
+        procTable[p].return_time = 0;
+        procTable[p].response_time = 0;
+        procTable[p].completed = false;
+    }
 
     Process * current = NULL;
-    Process * p = NULL;
-    for (size_t t = 0; t < duration; t++)
-    {
-        for (size_t i = 0; i < nprocs; i++)
-        {
-        printf("%ld,%ld \n",t,i);
-        p = &procTable[i];
-        if (p->arrive_time == t && !p->completed)
-        {
-            if(enqueue(p) == EXIT_FAILURE)
-            {
-                perror("Error en encuar el procés");
+    for (size_t t = 0; t < duration; t++){
+        for (size_t i = 0; i < nprocs; i++){
+            /*  - Per cada instant t mirem si hi ha algun procés que arribi.
+                - Si és així l'afegim a la cua
+            */   
+            Process *p = &procTable[i];
+            if (p->arrive_time == t){
+                int st = enqueue(p);
+                if (st == EXIT_FAILURE){
+                    fprintf(stderr, "Error enqueuing process %s at time %ld\n", p->name, t);
+                }
             }
         }
-    }
-    if (current == NULL && get_queue_size() > 0)
-    {
-        current = dequeue();
-        if(current->response_time == 0)
-        {
-            current->response_time = (int)t - current ->arrive_time;
+
+        // - Si no hi ha cap procés en execució current==NULL, en traiem un de la cua si n'hi ha
+        
+        if (current == NULL && get_queue_size() > 0){
+                current = dequeue();
         }
-    }
-    if (current != NULL)
-    {
-        current->lifecycle[t] = Running;
-        current->burst--;
-        for(size_t i = 0; i < nprocs ; i++)
-        {
-            p = &procTable[i];  
+
+        // - Si hi ha un procés en execució, l'executem un cicle més
+        if (current != NULL){
+            current->lifecycle[t] = Running;
+            current->burst--;
         }
-        if(current->id != p->id && !p->completed && p->arrive_time <= t && p->lifecycle[t] != Running)
-        {  
-            printProcess(*p);
-            p->lifecycle[t] = Ready;
-            p->waiting_time++;
-            p->response_time++;
+
+        // - Actualitzem l'estat dels altres processos
+        for(size_t i = 0; i < nprocs ; i++){
+            Process *p = &procTable[i];
+            if(current!=NULL && current->id != p->id && p->completed == false && p->arrive_time <= t) {
+                p->lifecycle[t] = Ready;
+                p->waiting_time++;
+                p->response_time++;
+            }
         }
-        if (current->burst == 0)
-        {
+
+        // - Si el procés en execució ha acabat, l'acabem
+        if (current != NULL && current->burst == 0){
             current->lifecycle[t] = Finished;
             current->return_time = (int)t - current->arrive_time;
             current->completed = true;
             current = NULL;
         }
     }
-   }
 }
 
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
@@ -144,8 +151,11 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].response_time = 0;
         procTable[p].completed = false;
     }
-    make_fifo(procTable,nprocs);
- 
+
+    if (algorithm == FCFS){
+        make_fifo(procTable, nprocs);
+    }
+
     printSimulation(nprocs,procTable,duration);
 
     for (int p=0; p<nprocs; p++ ){

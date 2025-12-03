@@ -68,6 +68,63 @@ int getCurrentBurst(Process* proc, int current_time){
     return burst;
 }
 
+void make_fifo(Process * procTable, size_t nprocs)
+{
+    qsort(procTable,nprocs,sizeof(Process),compareArrival);
+
+    init_queue();
+    size_t duration = getTotalCPU(procTable, nprocs) + 1;
+
+    Process * current = NULL;
+    Process * p = NULL;
+    for (size_t t = 0; t < duration; t++)
+    {
+        for (size_t i = 0; i < nprocs; i++)
+        {
+        printf("%ld,%ld \n",t,i);
+        p = &procTable[i];
+        if (p->arrive_time == t && !p->completed)
+        {
+            if(enqueue(p) == EXIT_FAILURE)
+            {
+                perror("Error en encuar el procés");
+            }
+        }
+    }
+    if (current == NULL && get_queue_size() > 0)
+    {
+        current = dequeue();
+        if(current->response_time == 0)
+        {
+            current->response_time = (int)t - current ->arrive_time;
+        }
+    }
+    if (current != NULL)
+    {
+        current->lifecycle[t] = Running;
+        current->burst--;
+        for(size_t i = 0; i < nprocs ; i++)
+        {
+            p = &procTable[i];  
+        }
+        if(current->id != p->id && !p->completed && p->arrive_time <= t && p->lifecycle[t] != Running)
+        {  
+            printProcess(*p);
+            p->lifecycle[t] = Ready;
+            p->waiting_time++;
+            p->response_time++;
+        }
+        if (current->burst == 0)
+        {
+            current->lifecycle[t] = Finished;
+            current->return_time = (int)t - current->arrive_time;
+            current->completed = true;
+            current = NULL;
+        }
+    }
+   }
+}
+
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
 
     Process * _proclist;
@@ -87,66 +144,8 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].response_time = 0;
         procTable[p].completed = false;
     }
-
-
-    //Implementació nostra
-    Process * current = NULL;
-    
-    for (size_t t = 0; t < duration; t++)
-    {
-        for (size_t i = 0; i < nprocs; i++)
-        {
-        printf("%ld,%ld \n",t,i);
-        Process *p = &procTable[i];
-        printProcess(*p);
-        if (p->arrive_time == t)
-        {
-            if(enqueue(p) == EXIT_FAILURE)
-            {
-                perror("Error en encuar el procés");
-                return EXIT_FAILURE;
-            }
-        }
-    }
-    if (current == NULL && get_queue_size() > 0)
-    {
-        if((current = dequeue()) == NULL)
-        {
-            perror("No s'ha decuat cap procés");
-            return EXIT_FAILURE;
-        }
-        else //S'ha encuat un procés
-        {
-            //Mirar si hi ha més procesos encuats, 
-            //Si no hi ha més processos encuats paro el bucle
-            //si n'hi ha els trec els posso com a ready
-            //si no hi ha hi ha més procs, no faig res.
-            if((procTable = dequeue()) == NULL)
-            {
-                break;
-            }
-        }
-    }
-    if (current != NULL)
-    {
-        current->lifecycle[t] = Running;
-        current->burst--;
-        if (current->burst == 0)
-        {
-            current->lifecycle[t] = Finished;
-            current = NULL;
-        }
-    }
-    for(size_t i = 1; i < nprocs ; i++)
-    {
-        if(procTable != NULL){
-            procTable[i].lifecycle[t] = Ready;
-        }
-    }
-}
+    make_fifo(procTable,nprocs);
  
-    
-
     printSimulation(nprocs,procTable,duration);
 
     for (int p=0; p<nprocs; p++ ){

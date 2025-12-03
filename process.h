@@ -23,7 +23,7 @@ typedef struct _process
     int waiting_time;  //Temps espera    
     int return_time;   //Temps de retorn      
     int response_time; //Temps de resposta
-    bool completed;         
+    bool completed;
 } Process;
 
 Process initProcess(int id, char* name, int burst, int priority, int arrive_time);

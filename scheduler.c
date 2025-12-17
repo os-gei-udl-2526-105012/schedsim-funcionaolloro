@@ -131,7 +131,88 @@ void make_fifo(Process * procTable, size_t nprocs)
         }
     }
 }
+void make_rr(Process *procTable, size_t nprocs, int quantum)
+{
+    qsort(procTable, nprocs, sizeof(Process), compareArrival);
+    init_queue();
 
+    size_t duration = getTotalCPU(procTable, nprocs) + 20;
+
+    // Inicialització de cada procés
+    for (size_t i = 0; i < nprocs; i++) {
+        procTable[i].lifecycle = malloc(duration * sizeof(int));
+        for (size_t t = 0; t < duration; t++)
+            procTable[i].lifecycle[t] = -1;
+
+        procTable[i].waiting_time = 0;
+        procTable[i].return_time = 0;
+        procTable[i].response_time = 0;
+        procTable[i].completed = false;
+    }
+
+    Process *current = NULL;
+    int quantumCounter = 0;
+
+    for (size_t t = 0; t < duration; t++)
+    {
+        // Afegim els processos que arriben en aquest tick a la cua
+        for (size_t i = 0; i < nprocs; i++)
+        {
+            Process *p = &procTable[i];
+            if (p->arrive_time == t)
+            {
+                if (enqueue(p) == EXIT_FAILURE) {
+                    fprintf(stderr, "Error enqueuing process %s at time %zu\n", p->name, t);
+                }
+            }
+        }
+
+        // Si no hi ha procés actual, agafem un de la cua
+        if (current == NULL && get_queue_size() > 0)
+        {
+            current = dequeue();
+            quantumCounter = 0;
+        }
+
+        // Si hi ha procés en execució
+        if (current != NULL)
+        {
+         
+            current->lifecycle[t] = Running;
+            current->burst--;
+            quantumCounter++;
+
+            // Si el procés acaba, el marquem com a Finished
+            if (current->burst == 0)
+            {
+                current->lifecycle[t] = Finished;
+                current->completed = true;
+                current->return_time = (int)t - current->arrive_time + 1;
+                current = NULL;
+                quantumCounter = 0;
+            }
+          
+            else if (quantumCounter == quantum)
+            {
+                enqueue(current);
+                current = NULL;
+                quantumCounter = 0;
+            }
+        }
+
+      
+        for (size_t i = 0; i < nprocs; i++)
+        {
+            Process *p = &procTable[i];
+            if (!p->completed && p->arrive_time <= t && (current == NULL || current->id != p->id))
+            {
+                p->lifecycle[t] = Ready;
+                p->waiting_time++;
+                p->response_time++;
+            }
+        }
+    }
+}
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
 
     Process * _proclist;
@@ -155,6 +236,11 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
     if (algorithm == FCFS){
         make_fifo(procTable, nprocs);
     }
+     if (algorithm == RR)
+    {
+    make_rr(procTable, nprocs, quantum);
+    }
+
 
     printSimulation(nprocs,procTable,duration);
 

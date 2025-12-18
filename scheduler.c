@@ -131,6 +131,7 @@ void make_fifo(Process * procTable, size_t nprocs)
         }
     }
 }
+
 void make_rr(Process *procTable, size_t nprocs, int quantum)
 {
     qsort(procTable, nprocs, sizeof(Process), compareArrival);
@@ -138,16 +139,16 @@ void make_rr(Process *procTable, size_t nprocs, int quantum)
 
     size_t duration = getTotalCPU(procTable, nprocs) + 20;
 
-    // Inicialització de cada procés
-    for (size_t i = 0; i < nprocs; i++) {
-        procTable[i].lifecycle = malloc(duration * sizeof(int));
-        for (size_t t = 0; t < duration; t++)
-            procTable[i].lifecycle[t] = -1;
-
-        procTable[i].waiting_time = 0;
-        procTable[i].return_time = 0;
-        procTable[i].response_time = 0;
-        procTable[i].completed = false;
+    
+        for (int p=0; p<nprocs; p++ ){
+        procTable[p].lifecycle = malloc( duration * sizeof(int));
+        for(int t=0; t<duration; t++){
+            procTable[p].lifecycle[t]=-1;
+        }
+        procTable[p].waiting_time = 0;
+        procTable[p].return_time = 0;
+        procTable[p].response_time = 0;
+        procTable[p].completed = false;
     }
 
     Process *current = NULL;
@@ -155,14 +156,13 @@ void make_rr(Process *procTable, size_t nprocs, int quantum)
 
     for (size_t t = 0; t < duration; t++)
     {
-        // Afegim els processos que arriben en aquest tick a la cua
-        for (size_t i = 0; i < nprocs; i++)
-        {
+        for (size_t i = 0; i < nprocs; i++){
+
             Process *p = &procTable[i];
-            if (p->arrive_time == t)
-            {
-                if (enqueue(p) == EXIT_FAILURE) {
-                    fprintf(stderr, "Error enqueuing process %s at time %zu\n", p->name, t);
+            if (p->arrive_time == t){
+                int st = enqueue(p);
+                if (st == EXIT_FAILURE){
+                    fprintf(stderr, "Error enqueuing process %s at time %ld\n", p->name, t);
                 }
             }
         }
@@ -173,46 +173,47 @@ void make_rr(Process *procTable, size_t nprocs, int quantum)
             current = dequeue();
             quantumCounter = 0;
         }
-
-        // Si hi ha procés en execució
-        if (current != NULL)
+        
+        if (current != NULL) 
         {
-         
+    
             current->lifecycle[t] = Running;
             current->burst--;
             quantumCounter++;
-
-            // Si el procés acaba, el marquem com a Finished
-            if (current->burst == 0)
-            {
-                current->lifecycle[t] = Finished;
-                current->completed = true;
-                current->return_time = (int)t - current->arrive_time + 1;
-                current = NULL;
-                quantumCounter = 0;
+        
+        
+            if (current->burst == 0) {
+        
+            current->lifecycle[t] = Finished;
+            current->completed = true;
+            current->return_time = (int)t - current->arrive_time + 1;
+            current = NULL;
+            quantumCounter = 0;
             }
-          
             else if (quantumCounter == quantum)
             {
-                enqueue(current);
-                current = NULL;
-                quantumCounter = 0;
+            enqueue(current);
+            current = NULL;
+            quantumCounter = 0;
             }
+
         }
 
-      
-        for (size_t i = 0; i < nprocs; i++)
+        for (size_t i = 0; i < nprocs; i++) 
         {
-            Process *p = &procTable[i];
-            if (!p->completed && p->arrive_time <= t && (current == NULL || current->id != p->id))
+        Process *p = &procTable[i];
+            if (!p->completed && p->arrive_time <= t && (current == NULL || p->id != current->id)) 
             {
+                if (p->lifecycle[t] != Running)
+                {
                 p->lifecycle[t] = Ready;
                 p->waiting_time++;
-                p->response_time++;
+                }
             }
-        }
+       }
     }
 }
+
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
 
     Process * _proclist;

@@ -214,6 +214,80 @@ void make_rr(Process *procTable, size_t nprocs, int quantum)
     }
 }
 
+
+void make_sjf_nonpreemptive(Process *procTable, size_t nprocs)
+{
+    qsort(procTable,nprocs,sizeof(Process),compareArrival);
+    init_queue();
+    size_t duration = getTotalCPU(procTable, nprocs) +1;
+
+    for (int p=0; p<nprocs; p++ ){
+        procTable[p].lifecycle = malloc( duration * sizeof(int));
+        for(int t=0; t<duration; t++){
+            procTable[p].lifecycle[t]=-1;
+        }
+        
+        procTable[p].waiting_time = 0;
+        procTable[p].return_time = 0;
+        procTable[p].response_time = 0;
+        procTable[p].completed = false;
+    }
+     
+
+
+    Process * current = NULL;
+    for (size_t t = 0; t < duration; t++){
+        for (size_t i = 0; i < nprocs; i++){
+
+            Process *p = &procTable[i];
+            if (p->arrive_time == t){
+                int st = enqueue(p);
+                if (st == EXIT_FAILURE){
+                    fprintf(stderr, "Error enqueuing process %s at time %ld\n", p->name, t);
+                }
+            }
+        }
+
+            if (current == NULL && get_queue_size() > 0)
+            {
+
+           
+                Process *list = transformQueueToList();
+                qsort(list, get_queue_size(), sizeof(Process), compareBurst);
+                setQueueFromList(list);
+                free(list);
+
+                current = dequeue();
+            }
+
+        
+      
+        if (current != NULL){
+            current->lifecycle[t] = Running;
+            current->burst--;
+        }
+
+      
+        for(size_t i = 0; i < nprocs ; i++){
+            Process *p = &procTable[i];
+            if(current!=NULL && current->id != p->id && p->completed == false && p->arrive_time <= t) {
+                p->lifecycle[t] = Ready;
+                p->waiting_time++;
+                p->response_time++;
+            }
+        }
+
+     
+        if (current != NULL && current->burst == 0){
+            current->lifecycle[t] = Finished;
+            current->return_time = (int)t - current->arrive_time;
+            current->completed = true;
+            current = NULL;
+        }
+    }
+}
+
+
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
 
     Process * _proclist;
@@ -240,6 +314,10 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
      if (algorithm == RR)
     {
     make_rr(procTable, nprocs, quantum);
+    }
+        if (algorithm == SJF && modality == NONPREEMPTIVE) 
+    {
+        make_sjf_nonpreemptive(procTable, nprocs);
     }
 
 
